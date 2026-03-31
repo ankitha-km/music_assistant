@@ -6,6 +6,7 @@ import webbrowser
 import urllib.parse
 import json
 import time
+import subprocess
 from groq import Groq
 from config import (
     GROQ_API_KEY, BASE_DIR, SPEECH_RATE,
@@ -15,7 +16,7 @@ from config import (
 # ── Setup ──────────────────────────────────────────────────────────────────
 os.makedirs(BASE_DIR, exist_ok=True)
 MEMORY_FILE  = os.path.join(BASE_DIR, "memory.json")
-PLAY_BTN_IMG = os.path.join(BASE_DIR, "play_btn.png")   # template image
+PLAY_BTN_IMG = os.path.join(BASE_DIR, "play_btn.png")
 
 # ── Load / save memory ─────────────────────────────────────────────────────
 
@@ -48,7 +49,7 @@ def speak(text):
         tts.stop()
     except Exception as e:
         print(f"(TTS error: {e})")
-    time.sleep(0.5)
+    time.sleep(0.8)   # extra pause so mic doesn't catch speaker output
 
 # ── Groq ───────────────────────────────────────────────────────────────────
 client = Groq(api_key=GROQ_API_KEY)
@@ -81,6 +82,7 @@ recognizer = sr.Recognizer()
 recognizer.pause_threshold = 1.0
 
 def listen():
+    time.sleep(0.3)   # small gap before opening mic
     try:
         with sr.Microphone() as source:
             print("\nListening... (speak now)")
@@ -155,25 +157,39 @@ def extract_song_query(text):
             return query
     return None
 
+def bring_browser_to_front():
+    """Use Windows to bring the browser window to front reliably."""
+    # Click on the taskbar area where browser would be, then use alt+tab
+    pyautogui.hotkey("alt", "tab")
+    time.sleep(0.8)
+
 def find_and_click_play():
     """Find the Play button using image matching, then click it."""
-    # Try image matching first (most reliable)
+    bring_browser_to_front()
+
     if os.path.exists(PLAY_BTN_IMG):
         try:
-            location = pyautogui.locateOnScreen(PLAY_BTN_IMG, confidence=0.7)
+            location = pyautogui.locateOnScreen(PLAY_BTN_IMG, confidence=0.6)
             if location:
                 center = pyautogui.center(location)
                 print(f"Play button found at {center}")
                 pyautogui.click(center)
                 return True
             else:
-                print("Play button image not found on screen, trying fallback...")
+                print("Image not found on screen, trying lower confidence...")
+                location = pyautogui.locateOnScreen(PLAY_BTN_IMG, confidence=0.4)
+                if location:
+                    center = pyautogui.center(location)
+                    pyautogui.click(center)
+                    return True
         except Exception as e:
             print(f"Image match error: {e}")
 
-    # Fallback: press Space (plays/pauses on YouTube Music when page is focused)
-    print("Using Space key fallback")
-    pyautogui.press("space")
+    # Fallback: click middle of screen where Play button usually appears
+    print("Using click fallback at Play button area")
+    screen_w, screen_h = pyautogui.size()
+    # Play button is roughly at 40% from left, 50% from top
+    pyautogui.click(int(screen_w * 0.40), int(screen_h * 0.50))
     return False
 
 def open_youtube_music(query):
@@ -184,10 +200,10 @@ def open_youtube_music(query):
     last_search["query"] = query
     memory["songs_played"].append(query)
     save_memory(memory)
-    time.sleep(4)                    # wait for page to load
-    pyautogui.hotkey("alt", "tab")  # bring browser to front
-    time.sleep(0.5)
-    find_and_click_play()
+
+    print("Waiting for page to load...")
+    time.sleep(5)          # wait for page to fully load
+    find_and_click_play()  # click play button
 
 # ── Trailer ────────────────────────────────────────────────────────────────
 
@@ -269,8 +285,6 @@ def main():
         query = extract_song_query(user_input)
         if query == "__FIRST_RESULT__":
             speak("Clicking play for you.")
-            pyautogui.hotkey("alt", "tab")
-            time.sleep(0.3)
             find_and_click_play()
             continue
         if query:
