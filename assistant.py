@@ -76,19 +76,21 @@ reset_conversation()
 
 # ── Mic ────────────────────────────────────────────────────────────────────
 recognizer = sr.Recognizer()
-recognizer.pause_threshold = 1.0
+recognizer.pause_threshold = 0.8
+recognizer.energy_threshold = 400
+recognizer.dynamic_energy_threshold = True
 
 def listen():
     time.sleep(0.1)
     try:
         with sr.Microphone() as source:
             print("\nListening... (speak now)")
-            recognizer.energy_threshold = 300   # more sensitive mic
-            recognizer.dynamic_energy_threshold = True
             recognizer.adjust_for_ambient_noise(source, duration=0.3)
-            audio = recognizer.listen(source, timeout=6, phrase_time_limit=15)
-        # Use Indian English language hint for better recognition
+            audio = recognizer.listen(source, timeout=5, phrase_time_limit=10)
         text = recognizer.recognize_google(audio, language="en-IN")
+        text = text.strip()
+        if len(text) < 2:
+            return None
         print(f"You said: {text}")
         return text
     except sr.WaitTimeoutError:
