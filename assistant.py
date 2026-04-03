@@ -58,8 +58,9 @@ def build_system_prompt():
     return f"""You are a friendly voice assistant on the user's Windows laptop.
 Keep answers short and natural — speaking aloud, not writing.
 Maximum 2 sentences per reply. No bullet points or markdown.
-You CAN play songs by opening YouTube Music and clicking play automatically.
-When asked to play a song, just confirm you are playing it.
+IMPORTANT: Never say you are playing a song. You cannot play songs yourself.
+If asked to play something vague like "play it" or "just play", ask for the song name.
+Only the code plays songs — you just chat, answer questions, and suggest movies.
 
 User taste profile:
 - Favourite actors: {', '.join(memory['favourite_actors']) or 'unknown'}
@@ -134,8 +135,14 @@ PLAY_TRIGGERS = ["play ", "search for ", "put on ", "i want to hear ", "listen t
 JUNK_QUERIES = {
     "it", "that", "this", "something", "anything", "music", "song",
     "a song", "some music", "now", "again", "more", "the music",
-    "it by yourself", "yourself", "me", "please"
+    "it by yourself", "yourself", "me", "please", "called", "the song called"
 }
+
+# Phrases that mean "play whatever is already loaded"
+PLAY_CURRENT = [
+    "just play", "play it", "play now", "play please",
+    "could you please play", "can you play", "please play"
+]
 
 last_search = {"query": None}
 
@@ -146,6 +153,9 @@ def extract_song_query(text):
         "first video", "play first", "that first one"
     ]
     if any(p in text_lower for p in first_result_phrases):
+        return "__FIRST_RESULT__"
+    # "just play it" / "play it now" = click play on whatever is open
+    if any(text_lower == p or text_lower.startswith(p) for p in PLAY_CURRENT):
         return "__FIRST_RESULT__"
     for trigger in PLAY_TRIGGERS:
         if trigger in text_lower:
@@ -167,17 +177,32 @@ def find_and_click_play():
     """Find the Play button using image matching, then click it."""
     bring_browser_to_front()
 
+    screen_w, screen_h = pyautogui.size()
+
+    # Search only in the LEFT-CENTRE region where YouTube Music shows
+    # the top result card with the Play button (avoid top-right UI elements)
+    search_region = (
+        int(screen_w * 0.20),   # left edge — skip sidebar
+        int(screen_h * 0.30),   # top edge — skip search bar
+        int(screen_w * 0.55),   # width of search area
+        int(screen_h * 0.35),   # height of search area
+    )
+
     if os.path.exists(PLAY_BTN_IMG):
         try:
-            location = pyautogui.locateOnScreen(PLAY_BTN_IMG, confidence=0.6)
+            location = pyautogui.locateOnScreen(
+                PLAY_BTN_IMG, confidence=0.6, region=search_region
+            )
             if location:
                 center = pyautogui.center(location)
                 print(f"Play button found at {center}")
                 pyautogui.click(center)
                 return True
             else:
-                print("Image not found on screen, trying lower confidence...")
-                location = pyautogui.locateOnScreen(PLAY_BTN_IMG, confidence=0.4)
+                print("Image not found in region, trying lower confidence...")
+                location = pyautogui.locateOnScreen(
+                    PLAY_BTN_IMG, confidence=0.4, region=search_region
+                )
                 if location:
                     center = pyautogui.center(location)
                     pyautogui.click(center)
@@ -185,11 +210,9 @@ def find_and_click_play():
         except Exception as e:
             print(f"Image match error: {e}")
 
-    # Fallback: click middle of screen where Play button usually appears
-    print("Using click fallback at Play button area")
-    screen_w, screen_h = pyautogui.size()
-    # Play button is roughly at 40% from left, 50% from top
-    pyautogui.click(int(screen_w * 0.40), int(screen_h * 0.50))
+    # Fallback: click where Play button typically sits on YouTube Music
+    print("Using fallback click")
+    pyautogui.click(int(screen_w * 0.38), int(screen_h * 0.50))
     return False
 
 def open_youtube_music(query):
