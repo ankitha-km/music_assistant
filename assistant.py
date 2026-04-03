@@ -160,7 +160,8 @@ def extract_song_query(text):
     for trigger in PLAY_TRIGGERS:
         if trigger in text_lower:
             query = text_lower.split(trigger, 1)[1].strip()
-            for filler in ["the song", "some", "a bit of", "me some", "the music"]:
+            for filler in ["the song called", "the song", "some", "a bit of",
+                           "me some", "the music", "called", "song called"]:
                 query = query.replace(filler, "").strip()
             if len(query) < 3 or query in JUNK_QUERIES:
                 return None
@@ -168,52 +169,29 @@ def extract_song_query(text):
     return None
 
 def bring_browser_to_front():
-    """Use Windows to bring the browser window to front reliably."""
-    # Click on the taskbar area where browser would be, then use alt+tab
+    """Bring browser to front using alt+tab."""
     pyautogui.hotkey("alt", "tab")
     time.sleep(0.8)
 
 def find_and_click_play():
-    """Find the Play button using image matching, then click it."""
+    """Click the YouTube Music Play button using keyboard navigation."""
     bring_browser_to_front()
-
-    screen_w, screen_h = pyautogui.size()
-
-    # Search only in the LEFT-CENTRE region where YouTube Music shows
-    # the top result card with the Play button (avoid top-right UI elements)
-    search_region = (
-        int(screen_w * 0.20),   # left edge — skip sidebar
-        int(screen_h * 0.30),   # top edge — skip search bar
-        int(screen_w * 0.55),   # width of search area
-        int(screen_h * 0.35),   # height of search area
-    )
-
-    if os.path.exists(PLAY_BTN_IMG):
-        try:
-            location = pyautogui.locateOnScreen(
-                PLAY_BTN_IMG, confidence=0.6, region=search_region
-            )
-            if location:
-                center = pyautogui.center(location)
-                print(f"Play button found at {center}")
-                pyautogui.click(center)
-                return True
-            else:
-                print("Image not found in region, trying lower confidence...")
-                location = pyautogui.locateOnScreen(
-                    PLAY_BTN_IMG, confidence=0.4, region=search_region
-                )
-                if location:
-                    center = pyautogui.center(location)
-                    pyautogui.click(center)
-                    return True
-        except Exception as e:
-            print(f"Image match error: {e}")
-
-    # Fallback: click where Play button typically sits on YouTube Music
-    print("Using fallback click")
-    pyautogui.click(int(screen_w * 0.38), int(screen_h * 0.50))
-    return False
+    # Press Tab to move focus into the page, then Enter on Play button
+    # YouTube Music: pressing Tab a few times from top reaches the Play button
+    pyautogui.hotkey("ctrl", "l")   # focus address bar
+    time.sleep(0.3)
+    pyautogui.press("escape")       # back to page
+    time.sleep(0.3)
+    pyautogui.press("tab")          # first tab goes to Play button on top result
+    time.sleep(0.2)
+    pyautogui.press("tab")
+    time.sleep(0.2)
+    pyautogui.press("tab")
+    time.sleep(0.2)
+    pyautogui.press("enter")        # click Play
+    time.sleep(0.3)
+    print("Play button clicked via keyboard.")
+    return True
 
 def open_youtube_music(query):
     """Open YouTube Music search then auto-click Play."""
