@@ -174,24 +174,23 @@ def bring_browser_to_front():
     time.sleep(0.8)
 
 def find_and_click_play():
-    """Click the YouTube Music Play button using keyboard navigation."""
+    """Find the Play button by image matching at confidence 0.8 and click it."""
     bring_browser_to_front()
-    # Press Tab to move focus into the page, then Enter on Play button
-    # YouTube Music: pressing Tab a few times from top reaches the Play button
-    pyautogui.hotkey("ctrl", "l")   # focus address bar
-    time.sleep(0.3)
-    pyautogui.press("escape")       # back to page
-    time.sleep(0.3)
-    pyautogui.press("tab")          # first tab goes to Play button on top result
-    time.sleep(0.2)
-    pyautogui.press("tab")
-    time.sleep(0.2)
-    pyautogui.press("tab")
-    time.sleep(0.2)
-    pyautogui.press("enter")        # click Play
-    time.sleep(0.3)
-    print("Play button clicked via keyboard.")
-    return True
+    if os.path.exists(PLAY_BTN_IMG):
+        for conf in [0.8, 0.7, 0.6]:
+            try:
+                loc = pyautogui.locateOnScreen(PLAY_BTN_IMG, confidence=conf)
+                if loc:
+                    center = pyautogui.center(loc)
+                    print(f"Play button found at {center} (conf={conf})")
+                    pyautogui.click(center)
+                    return True
+            except Exception:
+                continue
+    print("Play button not found, trying fallback click")
+    screen_w, screen_h = pyautogui.size()
+    pyautogui.click(int(screen_w * 0.38), int(screen_h * 0.50))
+    return False
 
 def open_youtube_music(query):
     """Open YouTube Music search then auto-click Play."""
