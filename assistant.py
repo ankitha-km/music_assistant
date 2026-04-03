@@ -49,26 +49,22 @@ def speak(text):
         tts.stop()
     except Exception as e:
         print(f"(TTS error: {e})")
-    time.sleep(0.8)   # extra pause so mic doesn't catch speaker output
+    time.sleep(0.4)
 
 # ── Groq ───────────────────────────────────────────────────────────────────
 client = Groq(api_key=GROQ_API_KEY)
 
 def build_system_prompt():
-    return f"""You are a friendly voice assistant on the user's Windows laptop.
-Keep answers short and natural — speaking aloud, not writing.
-Maximum 2 sentences per reply. No bullet points or markdown.
-IMPORTANT: Never say you are playing a song. You cannot play songs yourself.
-If asked to play something vague like "play it" or "just play", ask for the song name.
-Only the code plays songs — you just chat, answer questions, and suggest movies.
+    return f"""You are a voice assistant. Be VERY brief — maximum 1 sentence per reply.
+No bullet points, no markdown, no long explanations.
+Never say you are playing a song.
+If asked to play something vague, just say: "What song?"
+For movies: ask mood in 1 sentence, suggest 2 movie names only.
 
-User taste profile:
-- Favourite actors: {', '.join(memory['favourite_actors']) or 'unknown'}
-- Favourite genres: {', '.join(memory['favourite_genres']) or 'unknown'}
-- Songs recently played: {', '.join(memory['songs_played'][-10:]) or 'none'}
-- Movies watched: {', '.join(memory['watched_movies'][-20:]) or 'none'}
-
-For movie suggestions: ask 1 mood question, then suggest 2 movies. Ask about trailer after."""
+User profile:
+- Genres: {', '.join(memory['favourite_genres']) or 'unknown'}
+- Recent songs: {', '.join(memory['songs_played'][-5:]) or 'none'}
+- Movies watched: {', '.join(memory['watched_movies'][-10:]) or 'none'}"""
 
 conversation_history = []
 
@@ -83,7 +79,7 @@ recognizer = sr.Recognizer()
 recognizer.pause_threshold = 1.0
 
 def listen():
-    time.sleep(0.3)   # small gap before opening mic
+    time.sleep(0.1)
     try:
         with sr.Microphone() as source:
             print("\nListening... (speak now)")
@@ -193,7 +189,11 @@ def find_and_click_play():
     return False
 
 def open_youtube_music(query):
-    """Open YouTube Music search then auto-click Play."""
+    """Pause current song, open YouTube Music search, then auto-click Play."""
+    # Pause whatever is currently playing first
+    pyautogui.press("playpause")
+    time.sleep(0.3)
+
     encoded = urllib.parse.quote(query)
     url = f"https://music.youtube.com/search?q={encoded}"
     webbrowser.open(url)
@@ -202,8 +202,8 @@ def open_youtube_music(query):
     save_memory(memory)
 
     print("Waiting for page to load...")
-    time.sleep(5)          # wait for page to fully load
-    find_and_click_play()  # click play button
+    time.sleep(3.5)        # reduced from 5s
+    find_and_click_play()
 
 # ── Trailer ────────────────────────────────────────────────────────────────
 
