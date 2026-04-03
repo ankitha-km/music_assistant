@@ -55,11 +55,11 @@ def speak(text):
 client = Groq(api_key=GROQ_API_KEY)
 
 def build_system_prompt():
-    return f"""You are a voice assistant. Be VERY brief — maximum 1 sentence per reply.
-No bullet points, no markdown, no long explanations.
-Never say you are playing a song.
-If asked to play something vague, just say: "What song?"
-For movies: ask mood in 1 sentence, suggest 2 movie names only.
+    return f"""You are a voice assistant. Maximum 1 short sentence per reply.
+No bullet points, no markdown.
+Never say you are playing a song — the code handles that.
+If asked to play something vague with no song name, say: "Which song?"
+For movies: ask mood, then say 2 movie names only.
 
 User profile:
 - Genres: {', '.join(memory['favourite_genres']) or 'unknown'}
@@ -83,9 +83,12 @@ def listen():
     try:
         with sr.Microphone() as source:
             print("\nListening... (speak now)")
-            recognizer.adjust_for_ambient_noise(source, duration=0.4)
-            audio = recognizer.listen(source, timeout=6, phrase_time_limit=12)
-        text = recognizer.recognize_google(audio)
+            recognizer.energy_threshold = 300   # more sensitive mic
+            recognizer.dynamic_energy_threshold = True
+            recognizer.adjust_for_ambient_noise(source, duration=0.3)
+            audio = recognizer.listen(source, timeout=6, phrase_time_limit=15)
+        # Use Indian English language hint for better recognition
+        text = recognizer.recognize_google(audio, language="en-IN")
         print(f"You said: {text}")
         return text
     except sr.WaitTimeoutError:
@@ -126,12 +129,12 @@ def handle_spotify(text):
 
 # ── YouTube Music auto-play ────────────────────────────────────────────────
 
-PLAY_TRIGGERS = ["play ", "search for ", "put on ", "i want to hear ", "listen to "]
+PLAY_TRIGGERS = ["play ", "search for ", "put on ", "i want to hear ", "listen to ", "song "]
 
 JUNK_QUERIES = {
-    "it", "that", "this", "something", "anything", "music", "song",
+    "it", "that", "this", "something", "anything", "music",
     "a song", "some music", "now", "again", "more", "the music",
-    "it by yourself", "yourself", "me", "please", "called", "the song called"
+    "it by yourself", "yourself", "me", "please"
 }
 
 # Phrases that mean "play whatever is already loaded"
