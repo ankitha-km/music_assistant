@@ -149,7 +149,7 @@ def listen():
     """Listen for a command after wake word."""
     time.sleep(0.1)
     print("\nListening... (speak now)")
-    text = listen_once(timeout=5, phrase_limit=10)
+    text = listen_once(timeout=8, phrase_limit=15)
     if text:
         print(f"You said: {text}")
     else:
@@ -336,11 +336,25 @@ def main():
 
     while True:
         # Wait for wake word
-        wait_for_wake_word()
-        speak("Yeah?")
+        wake_text = wait_for_wake_word()
+        
+        # Check if command was already in the wake sentence
+        # e.g. "Hey Max play zaalima" — extract everything after "max"
+        inline_command = None
+        if wake_text:
+            wake_lower = wake_text.lower()
+            if "max" in wake_lower:
+                after_max = wake_lower.split("max", 1)[-1].strip()
+                if len(after_max) > 3:  # real command after "max"
+                    inline_command = after_max
+                    print(f"Inline command detected: {inline_command}")
 
-        # Listen for command
-        user_input = listen()
+        if inline_command:
+            user_input = inline_command
+        else:
+            speak("Yeah?")
+            user_input = listen()
+
         if not user_input:
             continue
 
@@ -376,6 +390,14 @@ def main():
         # 4. Groq chat
         reply = ask_groq(user_input)
         speak(reply)
+
+        # If user just said a song name and Groq identified it, offer to play
+        # e.g. user said "zaalima" and Groq replied "Zaalima by Arijit Singh"
+        if any(w in reply.lower() for w in ["by arijit", "by billie", "by taylor", "by ed"]):
+            # Extract song from reply and auto-play it
+            song_query = reply.replace("Zaalima by Arijit Singh", "zaalima arijit singh")
+            speak("Playing it now.")
+            open_youtube_music(reply.split(".")[0])
 
 if __name__ == "__main__":
     main()
